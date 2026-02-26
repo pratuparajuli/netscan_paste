@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""
+Network Scan + Port 80 Web Enumeration Script
+Follows the pseudocode provided in Question 7 / abstract design
+In this version, the scanning parts are dummy implemented and commented
+"""
+
+import os
+import sys
+import time
+# import subprocess               # used for online testing purpose
+# import xml.etree.ElementTree as ET  # not real XML
+# import shutil
+# from pathlib import Path
+# import signal                   # for online testing purpose
+
+# ==================== CONFIGURATION ====================
+#Tthese values as changed as needed (for demo only)
+TARGET_SPEC = "192.168.1.0/24"              # example target
+MAX_HOSTS_TO_ENUMERATE = 20
+GOBUSTER_THREADS = 20
+GOBUSTER_EXTENSIONS = "php,html,txt,js,bak,zip"
+GOBUSTER_TIMEOUT_SEC = 300
+OVERALL_TIMEOUT_SEC = 3600
+WORDLIST_PATH = "/usr/share/wordlists/dirb/common.txt"  # dummy path
+OUTPUT_DIRECTORY = "scan_results"
+
+INTERESTING_CODES = {200, 301, 302, 403, 500, 401, 405}
+
+# =========================================================
+
+# def run_command(...):           # cannot run external commands online
+#     ...
+
+def validate_tools_and_files():
+    """Validate that nmap and gobuster are in PATH and wordlist exists"""
+    # In real version, check shutil.which("nmap") etc.
+    # For the online purpose, pretend everything is ok
+    print("Tools and wordlist validated. (Dummy message used for online test)")
+
+def sanitize_filename(ip: str) -> str:
+    """Simple IP sanitizer for filename"""
+    return ip.replace(".", "_").replace(":", "_")
+
+def main():
+    start_time = time.time()
+
+    # 1. Initialization phase
+    # output_dir = Path(OUTPUT_DIRECTORY)
+    # output_dir.mkdir(parents=True, exist_ok=True)     # many online envs block real folders
+    print(f"Would create folder: {OUTPUT_DIRECTORY} (dummy value)")
+
+    validate_tools_and_files()
+
+    live_web_hosts = []
+    summary_report = []
+    # scan_xml_path = output_dir / "scan.xml"           # commented
+
+    print(f"Starting scan of {TARGET_SPEC} ... (dummy)")
+
+    # 2. Network scan phase ────────────────────────────────────────────────
+    # Below is the dummy execution of the codes as nmap is not supported online
+    print("[Dummy] nmap would run here pretending it found some hosts")
+
+    # Dummy result instead of real parsing
+    live_web_hosts = ["192.168.1.10", "192.168.1.50", "10.0.0.123"]
+
+    if len(live_web_hosts) > MAX_HOSTS_TO_ENUMERATE:
+        print("Warning: Too many web servers found – Limiting to", MAX_HOSTS_TO_ENUMERATE)
+        live_web_hosts = live_web_hosts[:MAX_HOSTS_TO_ENUMERATE]
+
+    # 3. Web enumeration phase ─────────────────────────────────────────────
+    if not live_web_hosts:
+        summary_report.append("No hosts with port 80 open found.")
+    else:
+        print(f"Found {len(live_web_hosts)} potential web hosts. Starting enumeration... (dummy result)")
+
+        for ip in live_web_hosts:
+            output_file_name = f"{sanitize_filename(ip)}_gobuster.txt"
+            print(f"  Would run gobuster against http://{ip} → output to {output_file_name}")
+
+            # Dummy gobuster result
+            dummy_result = "Success"   # Use different value based on the test cases
+            interesting_paths = []
+
+            if dummy_result == "Success":
+                # Fake some discovered paths
+                interesting_paths = [
+                    f"/admin (Status: 301)",
+                    f"/backup (Status: 403)",
+                    f"/config.php (Status: 200)"
+                ]
+                summary_report.append(f"{ip}: {len(interesting_paths)} interesting paths")
+                summary_report.extend(interesting_paths)
+            elif dummy_result == "Timeout":
+                summary_report.append(f"{ip}: TIMEOUT after {GOBUSTER_TIMEOUT_SEC}s")
+            else:
+                summary_report.append(f"{ip}: ERROR – exit code 1 (dummy)")
+
+    # 4. Reporting phase
+    end_time = time.time()
+    duration = round(end_time - start_time, 1)
+
+    print("\n" + "="*60)
+    print(f"Scan completed in {duration} seconds (dummy)")
+    print(f"Total web hosts found: {len(live_web_hosts)}")
+    print(f"Enumerated hosts: {len(live_web_hosts)}")
+    print("\nSummary:")
+    for line in summary_report:
+        print(line)
+    print("\nProcess Completed.")
+    print(f"Find results in: ./{OUTPUT_DIRECTORY} (dummy)")
+    print(f"Total Web Hosts Found: {len(live_web_hosts)}")
+    print("Final Summary File : final_summary.txt")
+    print("="*60)
+    
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted by user.")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
