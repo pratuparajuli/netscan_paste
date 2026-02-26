@@ -1,42 +1,45 @@
 #!/usr/bin/env python3
 """
 Network Scan + Port 80 Web Enumeration Script
-Follows the pseudocode provided in Question 7 / abstract design
-In this version, the scanning parts are dummy implemented and commented
 """
 
 import os
 import sys
 import time
-# import subprocess               # used for online testing purpose
-# import xml.etree.ElementTree as ET  # not real XML
-# import shutil
-# from pathlib import Path
-# import signal                   # for online testing purpose
+import subprocess
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
 # ==================== CONFIGURATION ====================
-#Tthese values as changed as needed (for demo only)
-TARGET_SPEC = "192.168.1.0/24"              # example target
+TARGET_SPEC = "192.168.56.0/24"              # Safe VirtualBox Host-Only lab network
 MAX_HOSTS_TO_ENUMERATE = 20
 GOBUSTER_THREADS = 20
 GOBUSTER_EXTENSIONS = "php,html,txt,js,bak,zip"
 GOBUSTER_TIMEOUT_SEC = 300
 OVERALL_TIMEOUT_SEC = 3600
-WORDLIST_PATH = "/usr/share/wordlists/dirb/common.txt"  # dummy path
+WORDLIST_PATH = "/usr/share/wordlists/dirb/common.txt"
 OUTPUT_DIRECTORY = "scan_results"
 
 INTERESTING_CODES = {200, 301, 302, 403, 500, 401, 405}
-
 # =========================================================
-
-# def run_command(...):           # cannot run external commands online
-#     ...
 
 def validate_tools_and_files():
     """Validate that nmap and gobuster are in PATH and wordlist exists"""
-    # In real version, check shutil.which("nmap") etc.
-    # For the online purpose, pretend everything is ok
-    print("Tools and wordlist validated. (Dummy message used for online test)")
+    required = {
+        "nmap": "nmap",
+        "gobuster": "gobuster",
+        "wordlist": WORDLIST_PATH
+    }
+    for name, path in required.items():
+        if name == "wordlist":
+            if not os.path.isfile(path):
+                print(f"Error: Wordlist not found at {path}")
+                sys.exit(1)
+        else:
+            if not shutil.which(path):
+                print(f"Error: {name} not found in PATH")
+                sys.exit(1)
+    print("All required tools and wordlist found.")
 
 def sanitize_filename(ip: str) -> str:
     """Simple IP sanitizer for filename"""
@@ -45,75 +48,127 @@ def sanitize_filename(ip: str) -> str:
 def main():
     start_time = time.time()
 
-    # 1. Initialization phase
-    # output_dir = Path(OUTPUT_DIRECTORY)
-    # output_dir.mkdir(parents=True, exist_ok=True)     # many online envs block real folders
-    print(f"Would create folder: {OUTPUT_DIRECTORY} (dummy value)")
+    output_dir = Path(OUTPUT_DIRECTORY)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     validate_tools_and_files()
 
     live_web_hosts = []
     summary_report = []
-    # scan_xml_path = output_dir / "scan.xml"           # commented
 
-    print(f"Starting scan of {TARGET_SPEC} ... (dummy)")
+    # 1. Network scan phase
+    print(f"Starting nmap scan on {TARGET_SPEC} to find hosts with port 80 open...")
 
-    # 2. Network scan phase ────────────────────────────────────────────────
-    # Below is the dummy execution of the codes as nmap is not supported online
-    print("[Dummy] nmap would run here pretending it found some hosts")
+    scan_xml_path = output_dir / "scan.xml"
 
-    # Dummy result instead of real parsing
-    live_web_hosts = ["192.168.1.10", "192.168.1.50", "10.0.0.123"]
+    nmap_cmd = [
+        "nmap",
+        "-sn",                # host discovery
+        "-p80",               # only port 80
+        "--open",             # only show open ports
+        "-oX", str(scan_xml_path),
+        TARGET_SPEC
+    ]
+
+    try:
+        subprocess.run(nmap_cmd, check=True, capture_output=True, text=True)
+        print("nmap completed successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"nmap failed: {e}")
+        print(e.stderr)
+        sys.exit(1)
+
+    # Parse XML
+    try:
+        tree = ET.parse(scan_xml_path)
+        root = tree.getroot()
+        for host in root.findall("./host"):
+            addr_elem = host.find("./address")
+            if addr_elem is not None:
+                addr = addr_elem.get("addr")
+                for port in host.findall("./ports/port"):
+                    if port.get("portid") == "80":
+                        state = port.find("./state")
+                        if state is not None and state.get("state") == "open":
+                            live_web_hosts.append(addr)
+                            break
+    except Exception as e:
+        print(f"Error parsing nmap XML: {e}")
+        sys.exit(1)
+
+    print(f"Found {len(live_web_hosts)} hosts with port 80 open.")
 
     if len(live_web_hosts) > MAX_HOSTS_TO_ENUMERATE:
-        print("Warning: Too many web servers found – Limiting to", MAX_HOSTS_TO_ENUMERATE)
+        print(f"Warning: Too many web servers found – Limiting to {MAX_HOSTS_TO_ENUMERATE}")
         live_web_hosts = live_web_hosts[:MAX_HOSTS_TO_ENUMERATE]
 
-    # 3. Web enumeration phase ─────────────────────────────────────────────
+    # 2. Web enumeration phase
     if not live_web_hosts:
         summary_report.append("No hosts with port 80 open found.")
     else:
-        print(f"Found {len(live_web_hosts)} potential web hosts. Starting enumeration... (dummy result)")
+        print(f"Starting Gobuster enumeration on {len(live_web_hosts)} hosts...")
 
         for ip in live_web_hosts:
             output_file_name = f"{sanitize_filename(ip)}_gobuster.txt"
-            print(f"  Would run gobuster against http://{ip} → output to {output_file_name}")
+            output_path = output_dir / output_file_name
 
-            # Dummy gobuster result
-            dummy_result = "Success"   # Use different value based on the test cases
-            interesting_paths = []
+            print(f"  Running Gobuster on http://{ip} → saving to {output_path}")
 
-            if dummy_result == "Success":
-                # Fake some discovered paths
-                interesting_paths = [
-                    f"/admin (Status: 301)",
-                    f"/backup (Status: 403)",
-                    f"/config.php (Status: 200)"
-                ]
-                summary_report.append(f"{ip}: {len(interesting_paths)} interesting paths")
-                summary_report.extend(interesting_paths)
-            elif dummy_result == "Timeout":
-                summary_report.append(f"{ip}: TIMEOUT after {GOBUSTER_TIMEOUT_SEC}s")
-            else:
-                summary_report.append(f"{ip}: ERROR – exit code 1 (dummy)")
+            gobuster_cmd = [
+                "gobuster",
+                "dir",
+                "-u", f"http://{ip}",
+                "-w", WORDLIST_PATH,
+                "-t", str(GOBUSTER_THREADS),
+                "-x", GOBUSTER_EXTENSIONS,
+                "-o", str(output_path),
+                "--timeout", f"{GOBUSTER_TIMEOUT_SEC}s",
+                "-q"  # quiet mode
+            ]
 
-    # 4. Reporting phase
+            try:
+                subprocess.run(
+                    gobuster_cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=OVERALL_TIMEOUT_SEC
+                )
+                print(f"    Gobuster finished for {ip}. Results in {output_path}")
+
+                # Parse gobuster output
+                interesting_paths = []
+                with open(output_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and any(str(code) in line for code in INTERESTING_CODES):
+                            interesting_paths.append(line)
+
+                if interesting_paths:
+                    summary_report.append(f"{ip}: {len(interesting_paths)} interesting paths found")
+                    summary_report.extend(interesting_paths[:10])
+                else:
+                    summary_report.append(f"{ip}: No interesting paths found (likely only 404s)")
+
+            except subprocess.TimeoutExpired:
+                summary_report.append(f"{ip}: Gobuster TIMEOUT after {GOBUSTER_TIMEOUT_SEC}s")
+            except subprocess.CalledProcessError as e:
+                summary_report.append(f"{ip}: Gobuster failed (exit code {e.returncode})")
+            except Exception as e:
+                summary_report.append(f"{ip}: Error - {str(e)}")
+
+    # 3. Reporting
     end_time = time.time()
     duration = round(end_time - start_time, 1)
 
     print("\n" + "="*60)
-    print(f"Scan completed in {duration} seconds (dummy)")
+    print(f"Scan completed in {duration} seconds")
     print(f"Total web hosts found: {len(live_web_hosts)}")
-    print(f"Enumerated hosts: {len(live_web_hosts)}")
     print("\nSummary:")
     for line in summary_report:
         print(line)
-    print("\nProcess Completed.")
-    print(f"Find results in: ./{OUTPUT_DIRECTORY} (dummy)")
-    print(f"Total Web Hosts Found: {len(live_web_hosts)}")
-    print("Final Summary File : final_summary.txt")
+    print("\nResults saved in:", OUTPUT_DIRECTORY)
     print("="*60)
-    
 
 if __name__ == "__main__":
     try:
